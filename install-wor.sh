@@ -333,6 +333,9 @@ setup() { #run safety checks and install packages
     done
   fi
   
+  #Create folder to download everything to
+  mkdir -p "$DL_DIR"
+  
   #Make sure that DL_DIR is not set to a drive with a FAT-type partition
   if df -T "$DL_DIR" 2>/dev/null | grep -q 'fat' ;then
     error "The $DL_DIR directory is on a FAT32/FAT16/vfat partition. This type of partition cannot contain files larger than 4GB, however the Windows image will be 4.3GB.\nPlease format $DL_DIR to use an Ext4 partition."
@@ -369,12 +372,12 @@ LANGUAGE=C
 
 setup || exit 1
 
-#Create folder to download everything to
-mkdir -p "$DL_DIR"
-cd "$DL_DIR"
 
 #unless specified otherwise, run this script in cli mode
 [ -z "$RUN_MODE" ] && RUN_MODE=cli #RUN_MODE=gui
+
+#change directory
+cd "$DL_DIR"
 
 { #choose windows version
 if [ -z "$UUID" ];then
