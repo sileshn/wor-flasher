@@ -324,6 +324,9 @@ uupdump() { #Download Windows image for the $1 uuid and the $2 language
 }
 
 setup() { #run safety checks and install packages
+  #install zenity. Not all dstros come with zenity installed
+  package_installed zenity || install_packages zenity
+ 
   #check for internet connection
   echo -n "Checking for internet connection... "
   local wget_errors="$(command wget --spider github.com 2>&1)"
