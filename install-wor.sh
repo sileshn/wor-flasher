@@ -30,7 +30,7 @@ if [ -e "$DIRECTORY" ] && [ ! -f "${DIRECTORY}/no-update" ];then
   prepwd="$(pwd)"
   cd "$DIRECTORY"
   localhash="$(git rev-parse HEAD)"
-  latesthash="$(git ls-remote https://github.com/Botspot/wor-flasher HEAD | awk '{print $1}')"
+  latesthash="$(git ls-remote https://github.com/sileshn/wor-flasher HEAD | awk '{print $1}')"
   
   if [ "$localhash" != "$latesthash" ] && [ ! -z "$latesthash" ] && [ ! -z "$localhash" ];then
     echo_white "Auto-updating wor-flasher for the latest features and improvements..."
@@ -55,8 +55,13 @@ wget() { #wrapper function for the wget command for better reliability
 package_available() { #determine if the specified package-name exists in a repository
   local package="$1"
   [ -z "$package" ] && error "package_available(): no package name specified!"
-  #using grep to do this is nearly instantaneous, rather than apt-cache which takes several seconds
-  grep -rqx "Package: $package" /var/lib/apt/lists --exclude="lock" --exclude-dir="partial" 2>/dev/null
+  
+  if cat /etc/os-release | grep -iq 'Archlinux\|Endeavour\|Manjaro'; then
+    pacman -Ss | grep -q $package
+  else
+    #using grep to do this is nearly instantaneous, rather than apt-cache which takes several seconds
+    grep -rqx "Package: $package" /var/lib/apt/lists --exclude="lock" --exclude-dir="partial" 2>/dev/null
+  fi
 }
 
 package_installed() { #exit 0 if $1 package is installed, otherwise exit 1
@@ -65,12 +70,16 @@ package_installed() { #exit 0 if $1 package is installed, otherwise exit 1
   #find the package listed in /var/lib/dpkg/status
   #package_info "$package"
   
-  #directly search /var/lib/dpkg/status
-  grep "^Package: $package$" /var/lib/dpkg/status -A 1 | tail -n 1 | grep -q 'Status: install ok installed'
+  if cat /etc/os-release | grep -iq 'Archlinux\|Endeavour\|Manjaro'; then
+    pacman -Qe | grep -q $package
+  else
+    #directly search /var/lib/dpkg/status
+    grep "^Package: $package$" /var/lib/dpkg/status -A 1 | tail -n 1 | grep -q 'Status: install ok installed'
+  fi
 }
 
 install_packages() { #input: space-separated list of apt packages to install
-  [ -z "$1" ] && error "install_packages(): requires a list of apt packages to install"
+  [ -z "$1" ] && error "install_packages(): requires a list of packages to install"
   local dependencies="$1"
   local install_list=''
   local package
@@ -89,8 +98,12 @@ install_packages() { #input: space-separated list of apt packages to install
   
   if [ ! -z "$install_list" ];then
     echo_white "Installing packages: $install_list"
-    sudo apt update || error "Failed to run 'sudo apt update'! This is not an error in WoR-flasher."
-    sudo apt install -yf $install_list --no-install-recommends || error "Failed to install dependency packages! This is not an error in WoR-flasher."
+	if cat /etc/os-release | grep -iq 'Archlinux\|Endeavour\|Manjaro'; then
+      sudo pacman -Sy $install_list --noconfirm --needed || error "Failed to install dependency packages! This is not an error in WoR-flasher."
+    else
+      sudo apt update || error "Failed to run 'sudo apt update'! This is not an error in WoR-flasher."
+      sudo apt install -yf $install_list --no-install-recommends || error "Failed to install dependency packages! This is not an error in WoR-flasher."
+	fi
   fi
 }
 
@@ -350,7 +363,11 @@ If this error persists, contact Botspot - the WoR-flasher developer."
   fi
   
   #install dependencies
-  install_packages 'yad aria2 cabextract wimtools chntpw genisoimage exfat-fuse wget udftools' || exit 1
+  if cat /etc/os-release | grep -iq 'Archlinux\|Endeavour\|Manjaro'; then
+    install_packages 'yad aria2 cabextract wimlib chntpw cdrtools exfat-utils wget udftools zenity' || exit 1
+  else
+    install_packages 'yad aria2 cabextract wimtools chntpw genisoimage exfat-fuse wget udftools' || exit 1
+  fi
   
   #install exfat partition manipulation utility. exfatprogs replaces exfat-utils, but they cannot both be installed at once.
   if package_available exfatprogs && ! package_installed exfat-utils ;then
